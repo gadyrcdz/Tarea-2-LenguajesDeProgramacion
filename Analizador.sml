@@ -2,94 +2,108 @@ use "Creador.sml";
 
 structure Analizador = struct
   (* Funciones del analizador *)
-    
-    (* Función para leer una línea del archivo CSV y devolverla como una tupla *)
-    fun parseLine line =
-        let
-            val fields = String.tokens (fn c => c = #",") line
-        in
-            case fields of
-                [cuenta, fecha, tipo, monto, cuenta_destino] =>
-                    (* Convertir monto a real *)
-                    let
-                        val monto_real = Real.fromString monto
-                    in
-                        case monto_real of
-                            SOME m => (cuenta, fecha, tipo, m, cuenta_destino)
-                        | NONE => ("", "", "", 0.0, "")
-                    end
-            | _ => ("", "", "", 0.0, "")
-        end
-
-    (* Función para leer transacciones desde un archivo CSV *)
-    fun readTransactions filePath =
+   (* Función de ordenamiento por inserción adaptada para listas de tuplas *)
+    fun insertionSortTransacciones(lst: (string * string * string * real * string) list): (string * string * string * real * string) list =
     let
-        val file = TextIO.openIn filePath
-        fun loop () =
-            case TextIO.inputLine file of
-                NONE => []
-            | SOME line =>
-                    (* Parse each line and recursively read the next line *)
-                    parseLine line :: loop ()
+        fun insert (x, []) = [x]
+          | insert ((cuenta1, fechaHora1, tipo1, monto1, cuentaDestino1), (cuenta2, fechaHora2, tipo2, monto2, cuentaDestino2)::ys) =
+              if monto1 >= monto2 then
+                (cuenta1, fechaHora1, tipo1, monto1, cuentaDestino1) :: (cuenta2, fechaHora2, tipo2, monto2, cuentaDestino2) :: ys
+              else
+                (cuenta2, fechaHora2, tipo2, monto2, cuentaDestino2) :: insert((cuenta1, fechaHora1, tipo1, monto1, cuentaDestino1), ys)
+        
+        fun sort([], sorted) = sorted
+          | sort(x::xs, sorted) = sort(xs, insert(x, sorted))
     in
-        loop ()
-    end;
+        sort(lst, [])
+    end
 
-   
-    (* Función de ordenamiento por inserción *)
-    fun insertionSort cmp lst =
-        let
-            fun insert x [] = [x]
-            | insert x (y::ys) = if cmp x y then x::y::ys else y::insert x ys
-            fun sort [] = []
-            | sort (x::xs) = insert x (sort xs)
-        in
-            sort lst
-        end
-(* 
-    (* Función para mostrar el top de transacciones filtradas por monto *)
-    fun mostrarTop(archivo: string) =
+    (* Función para leer las transacciones desde el archivo *)
+    fun readTransactions archivo =
     let
-    val montoMinimo = case Creador.outPutM("\nIngrese el monto minimo: ") of
-        SOME s => String.substring(s, 0, size s - 1) (* Se mantiene el formato original *)
-      | NONE => ""
-    val montoMaximo = case Creador.outPutM("\nIngrese el monto maximo: ") of
-        SOME s => String.substring(s, 0, size s - 1) (* Se mantiene el formato original *)
-      | NONE => ""
-
-    (* Convertir montoMinimo y montoMaximo a real para la comparación *)
-    val montoMinimoReal = case Real.fromString montoMinimo of
-        SOME m => m
-      | NONE => 0.0
-    val montoMaximoReal = case Real.fromString montoMaximo of
-        SOME m => m
-      | NONE => 0.0
-
-    (* Leer las transacciones desde el archivo *)
-    val transacciones = readTransactions archivo
-
-    (* Filtrar transacciones por el rango de montos *)
-    val transacciones_filtradas = List.filter
-        (fn (_, _, _, monto, _) => monto >= montoMinimoReal andalso monto <= montoMaximoReal)
-        transacciones
-
-    (* Ordenar las transacciones por monto de forma descendente usando la función de ordenamiento por inserción *)
-    (* Asegúrate de que el tipo de la función de comparación sea correcto *)
-    val transacciones_ordenadas = insertionSort (fn (_, _, _, a, _) (_, _, _, b, _) => monto1 > monto2) transacciones_filtradas
-
-    (* Función para mostrar una transacción *)
-    fun mostrarTransaccion (cuenta, fecha, tipo, monto, cuenta_destino) =
-        let
-            val destino_str = if cuenta_destino = "" then "-" else cuenta_destino
-        in
-            print (cuenta ^ "\t" ^ fecha ^ "\t" ^ tipo ^ "\t" ^ Real.toString monto ^ "\t" ^ destino_str ^ "\n")
-        end
+        (* Función para leer y procesar el archivo *)
+        fun procesarArchivo ruta =
+            let
+                (* Abrimos el archivo *)
+                val entrada = TextIO.openIn ruta
+                
+                (* Función auxiliar para procesar cada línea del archivo *)
+                fun procesarLinea () =
+                    case TextIO.inputLine entrada of
+                        NONE => []
+                      | SOME linea =>
+                            let
+                                (* Procesamos la línea asumiendo que los campos están separados por comas *)
+                                val campos = String.fields (fn c => c = #",") linea
+                                (* Comprobamos si la lista tiene suficientes campos *)
+                                val numCampos = List.length campos
+                                (* Devolver una tupla (cuentaOrigen, fechaHora, tipo, monto, cuentaDestino) *)
+                                val cuentaOrigen = if numCampos > 0 then List.nth (campos, 0) else ""
+                                val fechaHora = if numCampos > 1 then List.nth (campos, 1) else ""
+                                val tipo = if numCampos > 2 then List.nth (campos, 2) else ""
+                                val monto = case Real.fromString (List.nth (campos, 3)) of
+                                    SOME r => r
+                                  | NONE => 0.0
+                                val cuentaDestino = if numCampos > 4 then List.nth (campos, 4) else ""
+                                in
+                                    (* Procesamos la línea actual y continuamos con el resto *)
+                                    (cuentaOrigen, fechaHora, tipo, monto, cuentaDestino)
+                                    :: procesarLinea ()
+                            end
+                (* Procesamos todas las líneas del archivo *)
+                val transacciones = procesarLinea ()
+                val _ = TextIO.closeIn entrada
+            in
+                transacciones
+            end
     in
-    (* Imprimir encabezado *)
-    print ("Número de cuenta origen\tFecha y hora\tTipo de transacción\tMonto\tCuenta destino\n");
-    (* Mostrar cada transacción *)
-    List.app mostrarTransaccion transacciones_ordenadas
-    end *)
+        procesarArchivo archivo
+    end
+
+    (* Función para mostrar el ranking de transacciones dentro de un rango *)
+    fun mostrarTopTransacciones (archivo: string) =
+    let
+        (* Leer las transacciones desde el archivo *)
+        val transacciones = readTransactions archivo
+
+        (* Solicitar monto mínimo y máximo al usuario *)
+        val montoMinInput = case Creador.outPutM("\nIngresa el monto mínimo: ") of
+            SOME s => s
+          | NONE => ""
+        val montoMaxInput = case Creador.outPutM("\nIngresa el monto máximo: ") of
+            SOME s => s
+          | NONE => ""
+
+        (* Convertir los montos mínimos y máximos a reales *)
+        val montoMin = case Real.fromString montoMinInput of
+            SOME r => r
+          | NONE => 0.0
+        val montoMax = case Real.fromString montoMaxInput of
+            SOME r => r
+          | NONE => 0.0
+
+        (* Filtrar transacciones dentro del rango *)
+        val transaccionesFiltradas = List.filter (fn (_, _, _, monto, _) => monto >= montoMin andalso monto <= montoMax) transacciones
+
+        (* Ordenar transacciones por monto en orden descendente *)
+        val transaccionesOrdenadas = insertionSortTransacciones transaccionesFiltradas
+
+        (* Función para mostrar una transacción *)
+        fun mostrarTransaccion (cuenta, fechaHora, tipo, monto, _) =
+            TextIO.output (TextIO.stdOut, 
+                (cuenta ^ "\t" ^ fechaHora ^ "\t" ^ tipo ^ "\t" ^ Real.toString monto ^ "\n")
+            )
+        
+    in
+        (* Imprimir encabezado *)
+        TextIO.output (TextIO.stdOut, "\nRanking de Transacciones por Monto\n");
+        TextIO.output (TextIO.stdOut, "Número de Cuenta Origen\tFecha y Hora\tTipo de Transacción\tMonto\n");
+        TextIO.output (TextIO.stdOut, "---------------------------------------------------------\n");
+        
+        (* Mostrar transacciones ordenadas *)
+        List.app mostrarTransaccion transaccionesOrdenadas
+    end
+
 
     
 (**********************************************************************************************************************************)
@@ -284,12 +298,123 @@ fun actividadesSospechosas (archivo: string) =
     end
 
 
+(*******************************************)
+(* Función para leer las transacciones desde el archivo *)
+fun readTransactions archivo =
+    let
+        (* Función para leer y procesar el archivo *)
+        fun procesarArchivo ruta =
+            let
+                (* Abrimos el archivo *)
+                val entrada = TextIO.openIn ruta
+                
+                (* Función auxiliar para procesar cada línea del archivo *)
+                fun procesarLinea () =
+                    case TextIO.inputLine entrada of
+                        NONE => []
+                      | SOME linea =>
+                            let
+                                (* Procesamos la línea asumiendo que los campos están separados por comas *)
+                                val campos = String.fields (fn c => c = #",") linea
+                                (* Comprobamos si la lista tiene suficientes campos *)
+                                val numCampos = List.length campos
+                                (* Devolver una tupla (cuentaOrigen, fecha, tipo, monto, cuentaDestino) *)
+                                val cuentaOrigen = if numCampos > 0 then List.nth (campos, 0) else ""
+                                val fechaHora = if numCampos > 1 then List.nth (campos, 1) else ""
+                                val tipo = if numCampos > 2 then List.nth (campos, 2) else ""
+                                val monto = if numCampos > 3 then Real.fromString (List.nth (campos, 3)) else NONE
+                                val cuentaDestino = if numCampos > 4 then List.nth (campos, 4) else ""
+                                in
+                                    (* Procesamos la línea actual y continuamos con el resto *)
+                                    (cuentaOrigen, fechaHora, tipo, monto, cuentaDestino)
+                                    :: procesarLinea ()
+                            end
+                (* Procesamos todas las líneas del archivo *)
+                val transacciones = procesarLinea ()
+                val _ = TextIO.closeIn entrada
+            in
+                transacciones
+            end
+    in
+        procesarArchivo archivo
+    end
 
+(* Función para generar el informe *)
+fun generarInforme (archivo: string) =
+    let
+        (* Leer las transacciones desde el archivo *)
+        val transacciones = readTransactions archivo
+        
+        (* Función para calcular la cantidad de transacciones por tipo *)
+        val cantidadPorTipo = List.foldl
+            (fn ((_, _, tipo, _, _), acc) =>
+                let
+                    val updatedAcc = case List.find (fn (t, _) => t = tipo) acc of
+                        SOME (_, count) => List.filter (fn (t, _) => t <> tipo) acc @ [(tipo, count + 1)]
+                      | NONE => acc @ [(tipo, 1)]
+                in
+                    updatedAcc
+                end
+            ) [] transacciones
+        
+        (* Función para encontrar la transacción con el monto más grande y la más pequeña *)
+        val (transaccionMayor, transaccionMenor) = List.foldl
+            (fn ((_, _, _, monto, _), (mayor, menor)) =>
+                let
+                    val actualMayor = case (mayor, monto) of
+                        (NONE, SOME m) => SOME m
+                      | (SOME m, SOME n) => if m < n then SOME n else mayor
+                      | _ => mayor
+                    val actualMenor = case (menor, monto) of
+                        (NONE, SOME m) => SOME m
+                      | (SOME m, SOME n) => if m > n then SOME n else menor
+                      | _ => menor
+                in
+                    (actualMayor, actualMenor)
+                end
+            ) (NONE, NONE) transacciones
+        
+        (* Transacciones con monto mayor y menor *)
+        val mayorMonto = case transaccionMayor of
+            NONE => "No hay transacciones"
+          | SOME monto => "Monto mayor: " ^ Real.toString monto
+        val menorMonto = case transaccionMenor of
+            NONE => "No hay transacciones"
+          | SOME monto => "Monto menor: " ^ Real.toString monto
+        
+        (* Función para calcular la cantidad de transacciones por cuenta *)
+        val cantidadPorCuenta = List.foldl
+            (fn ((cuenta, _, _, _, _), acc) =>
+                let
+                    val updatedAcc = case List.find (fn (c, _) => c = cuenta) acc of
+                        SOME (_, count) => List.filter (fn (c, _) => c <> cuenta) acc @ [(cuenta, count + 1)]
+                      | NONE => acc @ [(cuenta, 1)]
+                in
+                    updatedAcc
+                end
+            ) [] transacciones
+        
+        (* Función para mostrar los resultados *)
+        fun mostrarReporte () =
+            let
+                (* Imprimir cantidad de transacciones por tipo *)
+                val _ = print ("Cantidad de transacciones por tipo:\n")
+                val _ = List.app (fn (tipo, cantidad) => print (tipo ^ ": " ^ Int.toString cantidad ^ "\n")) cantidadPorTipo
+                
+                (* Imprimir transacción con monto mayor y menor *)
+                val _ = print ("\n" ^ mayorMonto ^ "\n" ^ menorMonto ^ "\n")
+                
+                (* Imprimir cantidad de transacciones por cuenta *)
+                val _ = print ("Cantidad de transacciones por cuenta:\n")
+                val _ = List.app (fn (cuenta, cantidad) => print (cuenta ^ ": " ^ Int.toString cantidad ^ "\n")) cantidadPorCuenta
+            in
+                ()
+            end
 
-      
-    fun resumen () = 
-      (* Lógica para mostrar el resumen *)
-      ();
+    in
+        mostrarReporte ()
+    end
+
 end;
 (*******************************************************)
     

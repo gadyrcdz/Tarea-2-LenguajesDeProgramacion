@@ -57,7 +57,7 @@ fun menu_Creador() =
         if option = "1" then
             (
                 
-                (* Analizador.mostrarTop(archivo); *)
+                Analizador.mostrarTopTransacciones(archivo);
 
                 
                 menu_Analizador() (* Volvemos a llamar a main para el ciclo del menú *)
@@ -79,7 +79,7 @@ fun menu_Creador() =
             )
         else if option = "5" then
             (
-                Analizador.resumen();
+                Analizador.generarInforme(archivo);
                 menu_Analizador() (* Volvemos a llamar a main para el ciclo del menú *)
             )
         else if option = "6" then
