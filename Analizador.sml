@@ -1,5 +1,6 @@
 structure Analizador = struct
   (* Funciones del analizador *)
+    
     fun mostrarTop () = 
       (* Lógica para mostrar top por rango *)
       ();
