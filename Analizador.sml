@@ -1,23 +1,295 @@
+use "Creador.sml";
+
 structure Analizador = struct
   (* Funciones del analizador *)
     
-    fun mostrarTop () = 
-      (* Lógica para mostrar top por rango *)
-      ();
-      
-    fun actividadesSospechosas () = 
-      (* Lógica para actividades sospechosas *)
-      ();
+    (* Función para leer una línea del archivo CSV y devolverla como una tupla *)
+    fun parseLine line =
+        let
+            val fields = String.tokens (fn c => c = #",") line
+        in
+            case fields of
+                [cuenta, fecha, tipo, monto, cuenta_destino] =>
+                    (* Convertir monto a real *)
+                    let
+                        val monto_real = Real.fromString monto
+                    in
+                        case monto_real of
+                            SOME m => (cuenta, fecha, tipo, m, cuenta_destino)
+                        | NONE => ("", "", "", 0.0, "")
+                    end
+            | _ => ("", "", "", 0.0, "")
+        end
 
-    fun transaccionesPorCuenta () = 
-      (* Lógica para mostrar transacciones por cuenta *)
-      ();
+    (* Función para leer transacciones desde un archivo CSV *)
+    fun readTransactions filePath =
+    let
+        val file = TextIO.openIn filePath
+        fun loop () =
+            case TextIO.inputLine file of
+                NONE => []
+            | SOME line =>
+                    (* Parse each line and recursively read the next line *)
+                    parseLine line :: loop ()
+    in
+        loop ()
+    end;
 
-    fun cantidadPorTipo () = 
-      (* Lógica para mostrar cantidad por tipo *)
-      ();
+   
+    (* Función de ordenamiento por inserción *)
+    fun insertionSort cmp lst =
+        let
+            fun insert x [] = [x]
+            | insert x (y::ys) = if cmp x y then x::y::ys else y::insert x ys
+            fun sort [] = []
+            | sort (x::xs) = insert x (sort xs)
+        in
+            sort lst
+        end
+(* 
+    (* Función para mostrar el top de transacciones filtradas por monto *)
+    fun mostrarTop(archivo: string) =
+    let
+    val montoMinimo = case Creador.outPutM("\nIngrese el monto minimo: ") of
+        SOME s => String.substring(s, 0, size s - 1) (* Se mantiene el formato original *)
+      | NONE => ""
+    val montoMaximo = case Creador.outPutM("\nIngrese el monto maximo: ") of
+        SOME s => String.substring(s, 0, size s - 1) (* Se mantiene el formato original *)
+      | NONE => ""
+
+    (* Convertir montoMinimo y montoMaximo a real para la comparación *)
+    val montoMinimoReal = case Real.fromString montoMinimo of
+        SOME m => m
+      | NONE => 0.0
+    val montoMaximoReal = case Real.fromString montoMaximo of
+        SOME m => m
+      | NONE => 0.0
+
+    (* Leer las transacciones desde el archivo *)
+    val transacciones = readTransactions archivo
+
+    (* Filtrar transacciones por el rango de montos *)
+    val transacciones_filtradas = List.filter
+        (fn (_, _, _, monto, _) => monto >= montoMinimoReal andalso monto <= montoMaximoReal)
+        transacciones
+
+    (* Ordenar las transacciones por monto de forma descendente usando la función de ordenamiento por inserción *)
+    (* Asegúrate de que el tipo de la función de comparación sea correcto *)
+    val transacciones_ordenadas = insertionSort (fn (_, _, _, a, _) (_, _, _, b, _) => monto1 > monto2) transacciones_filtradas
+
+    (* Función para mostrar una transacción *)
+    fun mostrarTransaccion (cuenta, fecha, tipo, monto, cuenta_destino) =
+        let
+            val destino_str = if cuenta_destino = "" then "-" else cuenta_destino
+        in
+            print (cuenta ^ "\t" ^ fecha ^ "\t" ^ tipo ^ "\t" ^ Real.toString monto ^ "\t" ^ destino_str ^ "\n")
+        end
+    in
+    (* Imprimir encabezado *)
+    print ("Número de cuenta origen\tFecha y hora\tTipo de transacción\tMonto\tCuenta destino\n");
+    (* Mostrar cada transacción *)
+    List.app mostrarTransaccion transacciones_ordenadas
+    end *)
+
+    
+(**********************************************************************************************************************************)
+
+
+
+    (* Función para leer las transacciones desde el archivo *)
+fun readTransactions archivo =
+    let
+        (* Función para leer y procesar el archivo *)
+        fun procesarArchivo ruta =
+            let
+                (* Abrimos el archivo *)
+                val entrada = TextIO.openIn ruta
+                
+                (* Función auxiliar para procesar cada línea del archivo *)
+                fun procesarLinea () =
+                    case TextIO.inputLine entrada of
+                        NONE => []
+                      | SOME linea =>
+                            let
+                                (* Procesamos la línea asumiendo que los campos están separados por comas *)
+                                val campos = String.fields (fn c => c = #",") linea
+                                (* Comprobamos si la lista tiene suficientes campos *)
+                                val numCampos = List.length campos
+                                (* Devolver una tupla (cuentaOrigen, fecha, tipo, monto, cuentaDestino) *)
+                                val cuentaOrigen = if numCampos > 0 then List.nth (campos, 0) else ""
+                                val fechaHora = if numCampos > 1 then List.nth (campos, 1) else ""
+                                val tipo = if numCampos > 2 then List.nth (campos, 2) else ""
+                                val monto = if numCampos > 3 then List.nth (campos, 3) else ""
+                                val cuentaDestino = if numCampos > 4 then List.nth (campos, 4) else ""
+                                in
+                                    (* Procesamos la línea actual y continuamos con el resto *)
+                                    (cuentaOrigen, String.substring(fechaHora, 0, 10), tipo, monto, cuentaDestino)
+                                    :: procesarLinea ()
+                            end
+                (* Procesamos todas las líneas del archivo *)
+                val transacciones = procesarLinea ()
+                val _ = TextIO.closeIn entrada
+            in
+                transacciones
+            end
+    in
+        procesarArchivo archivo
+    end
+
+(* Función para generar el informe de actividades sospechosas *)
+fun actividadesSospechosas (archivo: string) =
+    let
+        (* Leer las transacciones desde el archivo *)
+        val transacciones = readTransactions archivo
+        
+        (* Agrupar transacciones por cuenta y fecha *)
+        val transaccionesAgrupadas = List.foldl
+            (fn ((cuenta, fecha, _, _, _), acc) =>
+                let
+                    (* Crear una clave única para la cuenta y la fecha *)
+                    val clave = (cuenta, fecha)
+                    (* Actualizar el conteo de transacciones en el acumulador *)
+                    val updatedAcc = case List.find (fn ((c, f), _) => (c = cuenta andalso f = fecha)) acc of
+                        SOME ((_, _), count) => List.filter (fn ((c, f), _) => not (c = cuenta andalso f = fecha)) acc
+                                @ [((cuenta, fecha), count + 1)]
+                      | NONE => acc @ [((cuenta, fecha), 1)]
+                in
+                    updatedAcc
+                end
+            ) [] transacciones
+        
+        (* Filtrar cuentas y fechas con 5 o más transacciones *)
+        val transaccionesSospechosas = List.filter (fn ((_, _), count) => count >= 5) transaccionesAgrupadas
+        
+        (* Función para mostrar una entrada del informe *)
+        fun mostrarSospechosa ((cuenta, fecha), count) =
+            print (cuenta ^ "\t" ^ fecha ^ "\t" ^ Int.toString count ^ "\n")
+        
+    in
+        (* Imprimir encabezado *)
+        print ("Informe de Actividades Sospechosas\n");
+        print ("Número de cuenta origen\tFecha\tNúmero de transacciones\n");
+        
+        (* Mostrar las transacciones sospechosas *)
+        List.app mostrarSospechosa transaccionesSospechosas
+    end
+
+
+(************************************************************************************************************************)
+    fun transaccionesPorCuenta (archivo: string) =
+    let
+        (* Función para leer y procesar el archivo *)
+        fun procesarArchivo ruta cuenta =
+            let
+                (* Abrimos el archivo *)
+                val entrada = TextIO.openIn ruta
+                
+                (* Función auxiliar para procesar cada línea del archivo *)
+                fun procesarLinea () =
+                    case TextIO.inputLine entrada of
+                        NONE => ()  (* Fin del archivo *)
+                      | SOME linea =>
+                            let
+                                (* Procesamos la línea asumiendo que los campos están separados por comas *)
+                                val campos = String.fields (fn c => c = #",") linea
+                                (* Comprobamos si la lista tiene suficientes campos *)
+                                val numCampos = List.length campos
+                                val cuentaOrigen = if numCampos > 0 then List.nth (campos, 0) else ""
+                                val cuentaDestino = if numCampos > 4 then List.nth (campos, 4) else ""
+                                (* Comprobamos si el número de cuenta coincide con el origen o el destino *)
+                                val coincide = (cuentaOrigen = cuenta) orelse (cuentaDestino = cuenta)
+                            in
+                                if coincide then
+                                    (* Imprimimos los campos en el formato adecuado *)
+                                    TextIO.output(TextIO.stdOut, 
+                                        (cuentaOrigen ^ "\t" ^ 
+                                         (if numCampos > 1 then List.nth (campos, 1) else "") ^ "\t" ^ 
+                                         (if numCampos > 2 then List.nth (campos, 2) else "") ^ "\t" ^ 
+                                         (if numCampos > 3 then List.nth (campos, 3) else "") ^ "\t" ^ 
+                                         cuentaDestino) ^ "\n")
+                                else
+                                    ()
+                            end
+                                (* Llamada recursiva para procesar la siguiente línea *)
+                                val _ = procesarLinea ()
+                (* Procesamos todas las líneas del archivo *)
+                val _ = procesarLinea ()
+                val _ = TextIO.closeIn entrada
+            in
+                ()
+            end
+        
+        (* Solicitamos el número de cuenta al usuario *)
+        val cuenta = case Creador.outPutM("\nIngresa el número de cuenta: ") of
+            SOME s => String.substring(s, 0, size s - 1)
+          | NONE => ""
+        
+        (* Mostramos el título *)
+        val _ = TextIO.output(TextIO.stdOut, "\nTransacciones para la cuenta: " ^ cuenta ^ "\n")
+        val _ = TextIO.output(TextIO.stdOut, "\nOrigen\tFecha\tHora\tTipo\tMonto\tDestino\n")
+        val _ = TextIO.output(TextIO.stdOut, "----------------------------------------------------\n")
+        
+        (* Llamamos a la función para procesar el archivo *)
+        val _ = procesarArchivo archivo cuenta
+    in
+        ()
+    end
+
+
+
+(**********************************************************************************************************************)
+
+
+    fun cantidadPorTipo (archivo: string) =
+    let
+        (* Función para leer y contar las transacciones por tipo *)
+        fun contarTipo ruta tipo =
+            let
+                (* Abrimos el archivo *)
+                val entrada = TextIO.openIn ruta
+                
+                (* Función auxiliar para contar las transacciones del tipo dado *)
+                fun contarLinea (contador: int) =
+                    case TextIO.inputLine entrada of
+                        NONE => contador
+                      | SOME linea =>
+                            let
+                                (* Procesamos la línea según el formato del archivo CSV *)
+                                val campos = String.fields (fn c => c = #",") linea
+                                (* Supongamos que el tipo de transacción está en el tercer campo *)
+                                val tipoTransaccion = if List.length campos > 2 then List.nth (campos, 2) else ""
+                                (* Incrementamos el contador si el tipo de transacción coincide *)
+                                val nuevoContador = if tipoTransaccion = tipo then contador + 1 else contador
+                            in
+                                contarLinea nuevoContador
+                            end
+                (* Contamos las transacciones *)
+                val cantidad = contarLinea 0
+                (* Cerramos el archivo después de procesar *)
+                val _ = TextIO.closeIn entrada
+            in
+                cantidad
+            end
+        
+        (* Solicitamos el tipo de transacción al usuario *)
+        val tipo = case Creador.outPutM("\nIngresa el tipo de transacción: ") of
+            SOME s => String.substring(s, 0, size s - 1)
+          | NONE => ""
+        
+        (* Mostramos el resultado *)
+        val cantidad = contarTipo archivo tipo
+        val _ = TextIO.output(TextIO.stdOut, "\nCantidad de transacciones del tipo " ^ tipo ^ ": " ^ Int.toString(cantidad) ^ "\n")
+    in
+        ()
+    end
+
+
+
+
       
     fun resumen () = 
       (* Lógica para mostrar el resumen *)
       ();
 end;
+(*******************************************************)
+    
