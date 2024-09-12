@@ -1,61 +1,72 @@
+(*Libreria para ayudarnos a abrir archivos, principalmente csv*)
+open TextIO;
+(*Libreria para manejar errores con los path*)
+open OS.Path;
+
 structure Creador = struct
-    fun leerArchivo (ruta: string) = 
-    let
-        val archivo = TextIO.openIn ruta
-        val contenido = TextIO.inputAll archivo
-        val _ = TextIO.closeIn archivo
+
+    (* Función para solicitar rutas por medio de consola *)
+    fun outPutM(msg: string) =
+    let 
+        val _ = TextIO.output(TextIO.stdOut, msg);
+        val _ = TextIO.flushOut TextIO.stdOut; (* Forza hacer el print *)
+        val input = TextIO.inputLine TextIO.stdIn;
     in
-        String.tokens Char.isSpace contenido
+        input
     end;
 
+    (* Función que recibe una ruta de archivo, lo abre y guarda en él todos los 
+       demás datos pedidos en el formato especificado *)
+    fun saveData() = 
+    let 
+        (* Procesamos el valor que regresa outPutM, asegurándonos de manejar el caso NONE *)
+        val input = case outPutM("\nIngresa la ruta de tu archivo: ") of
+            SOME s => String.substring(s, 0, size s -1)
+          | NONE => ""
 
-    fun writeFileA filename content = 
-    let
-        val fd = TextIO.openAppend filename
-        val _ = (TextIO.output (fd, content)
-                 handle e => (TextIO.closeOut fd; raise e))
-        val _ = TextIO.closeOut fd
+        val cuentaO = case outPutM("\nNúmero de cuenta origen: ") of
+            SOME s => String.substring(s, 0, size s -1)
+          | NONE => ""
+
+        val fecha = case outPutM("\nFecha y hora (YYYY-MM-DD HH:MM:SS): ") of
+            SOME s => String.substring(s, 0, size s -1)
+          | NONE => ""
+
+        val tipo = case outPutM("\nTipo de transacción (DEPOSITO, RETIRO, TRANSFERENCIA): ") of
+            SOME s => String.substring(s, 0, size s -1)
+          | NONE => ""
+
+        val cuenta_destino = 
+            if tipo = "TRANSFERENCIA" then
+                case outPutM("\nNúmero de cuenta destino:  ") of
+                    SOME s => String.substring(s, 0, size s - 1)
+                  | NONE => ""
+            else ""
+
+        val monto = case outPutM("\nMonto:  ") of
+            SOME s => String.substring(s, 0, size s -1)
+          | NONE => ""
+
+        (* Abre el archivo para agregar los datos *)
+        val file = TextIO.openAppend input;
+    
     in
-        ()
-    end;
+        TextIO.output(file, cuentaO ^ "," ^ fecha ^ "," ^ tipo ^ "," ^ monto ^ "," ^ cuenta_destino ^ "\n");
+        TextIO.closeOut file
+    end
+    handle OS.SysErr _ => (print "El archivo no existe en la ruta proporcionada.\n");
 
-
-    fun limpiar_cambios_linea str = 
-    if str = "" then ""
-    else if String.sub(str, 0) = #"\n" 
-    then limpiar_cambios_linea (String.substring (str, 1, (size str) - 1))
-    else String.substring (str, 0, 1) ^
-         limpiar_cambios_linea (String.substring (str, 1, (size str) - 1));
-
-
-    fun mensaje x = (print(x));
-
-    fun limpiar_indice ruta =
-    let val _ = TextIO.openOut ruta in () end;
-
-
-    fun escribir (ruta: string) = 
-    let
-        val _ = mensaje "Indique un nombre: ";
-        val nombre = case TextIO.inputLine TextIO.stdIn of
-            SOME temp => limpiar_cambios_linea temp
+    (* Función que elimina todos los datos de un archivo, dejándolo en blanco *)
+    fun emptyFile() = 
+    let 
+        val input = case outPutM("\nIngresa la ruta de tu archivo: ") of
+            SOME s => String.substring(s, 0, size s -1)
           | NONE => ""
 
-        val _ = mensaje "Indique el apellido: ";
-        val apellido = case TextIO.inputLine TextIO.stdIn of
-            SOME temp => limpiar_cambios_linea temp
-          | NONE => ""
-
-        val _ = mensaje "Indique la ciudad: ";
-        val ciudad = case TextIO.inputLine TextIO.stdIn of
-            SOME temp => limpiar_cambios_linea temp
-          | NONE => ""
-
-        val linea = nombre ^ "," ^ apellido ^ "," ^ ciudad ^ "\n";
-        val _ = writeFileA ruta linea;
-    in 
-        linea
-    end;
-
+        val fileOpen = TextIO.openOut input;
+    in
+        TextIO.closeOut fileOpen
+    end
+    handle OS.SysErr _ => (print "El archivo no existe en la ruta proporcionada.\n");
 
 end;
