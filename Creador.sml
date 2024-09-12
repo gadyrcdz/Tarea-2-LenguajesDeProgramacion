@@ -15,25 +15,39 @@ structure Creador = struct
         input
     end;
 
+
+    (* Función para convertir una cadena a mayúsculas *)
+    fun toUpperCase str =
+    let
+        (* Función auxiliar para convertir un carácter a mayúsculas *)
+        fun toUpperChar c = 
+            if Char.isLower c then 
+                Char.chr (Char.ord c - 32)
+            else
+                c
+    in
+        String.map toUpperChar str
+    end
+
     (* Función que recibe una ruta de archivo, lo abre y guarda en él todos los 
-       demás datos pedidos en el formato especificado *)
-    fun saveData() = 
+   demás datos pedidos en el formato especificado *)
+    fun saveData () = 
     let 
         (* Procesamos el valor que regresa outPutM, asegurándonos de manejar el caso NONE *)
         val input = case outPutM("\nIngresa la ruta de tu archivo: ") of
-            SOME s => String.substring(s, 0, size s -1)
+            SOME s => String.substring(s, 0, size s - 1)
           | NONE => ""
 
         val cuentaO = case outPutM("\nNúmero de cuenta origen: ") of
-            SOME s => String.substring(s, 0, size s -1)
+            SOME s => String.substring(s, 0, size s - 1)
           | NONE => ""
 
         val fecha = case outPutM("\nFecha y hora (YYYY-MM-DD HH:MM:SS): ") of
-            SOME s => String.substring(s, 0, size s -1)
+            SOME s => String.substring(s, 0, size s - 1)
           | NONE => ""
 
         val tipo = case outPutM("\nTipo de transacción (DEPOSITO, RETIRO, TRANSFERENCIA): ") of
-            SOME s => String.substring(s, 0, size s -1)
+            SOME s => toUpperCase (String.substring(s, 0, size s - 1))
           | NONE => ""
 
         val cuenta_destino = 
@@ -42,9 +56,9 @@ structure Creador = struct
                     SOME s => String.substring(s, 0, size s - 1)
                   | NONE => ""
             else ""
-
+            
         val monto = case outPutM("\nMonto:  ") of
-            SOME s => String.substring(s, 0, size s -1)
+            SOME s => String.substring(s, 0, size s - 1)
           | NONE => ""
 
         (* Abre el archivo para agregar los datos *)

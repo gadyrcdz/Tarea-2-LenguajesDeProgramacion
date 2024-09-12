@@ -286,8 +286,8 @@ fun actividadesSospechosas (archivo: string) =
             end
         
         (* Solicitamos el tipo de transacción al usuario *)
-        val tipo = case Creador.outPutM("\nIngresa el tipo de transacción: ") of
-            SOME s => String.substring(s, 0, size s - 1)
+        val tipo = case Creador.outPutM("\nTipo de transacción (DEPOSITO, RETIRO, TRANSFERENCIA): ") of
+            SOME s => Creador.toUpperCase (String.substring(s, 0, size s - 1))
           | NONE => ""
         
         (* Mostramos el resultado *)
