@@ -8,4 +8,5 @@ _Gadyr Calderón Díaz-2022327328_
 ## Tarea 2 🚀
 ## 12 septiembre 2024 🚀
 ## STATUS || MuyBuena 🚀
+## LINK PRUEBAS FUNCIONALES ==> https://youtu.be/QohvkIYfwZU 🚀
 
